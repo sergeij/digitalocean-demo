@@ -1,0 +1,13 @@
+config:
+  featureGates:
+    ACMEHTTP01IngressPathTypeExact: false
+crds:
+  enabled: true
+replicaCount: 2
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: cert-manager
+        topologyKey: "kubernetes.io/hostname"

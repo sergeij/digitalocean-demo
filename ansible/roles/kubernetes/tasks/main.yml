@@ -1,0 +1,29 @@
+---
+# tasks file for kubernetes
+
+- name: Disable swap
+  ansible.builtin.include_tasks: swap.yml
+
+- name: Configure sysctls
+  ansible.builtin.include_tasks: sysctl.yml
+
+- name: Install Containerd
+  ansible.builtin.include_tasks: containerd.yml
+  when: kubernetes_cluster_name in group_names
+
+- name: Bootstrap Kubernetes cluster
+  ansible.builtin.include_tasks: bootstrap.yml
+  when: kubernetes_cluster_name in group_names
+
+- name: Create secrets
+  ansible.builtin.include_tasks: secrets.yml
+  when: kubernetes_cluster_name in group_names
+
+- name: Install Helm charts
+  ansible.builtin.include_tasks: helm.yml
+  when: kubernetes_cluster_name in group_names
+  tags: helm
+
+- name: Apply manifests
+  ansible.builtin.include_tasks: manifests.yml
+  when: kubernetes_cluster_name in group_names

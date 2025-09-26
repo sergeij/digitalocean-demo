@@ -1,0 +1,13 @@
+containerPort: 4443
+hostNetwork:
+  enabled: true
+replicas: 2
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchLabels:
+            app.kubernetes.io/name: metrics-server
+        topologyKey: "kubernetes.io/hostname"
+args:
+  - --kubelet-insecure-tls

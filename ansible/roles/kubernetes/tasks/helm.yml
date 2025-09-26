@@ -1,0 +1,37 @@
+---
+- name: Get Helm install script
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    dest: /tmp/get-helm.sh
+    mode: '0755'
+  tags:
+    - helm
+
+- name: Install helm
+  ansible.builtin.command: /tmp/get-helm.sh
+  args:
+    creates: /usr/local/bin/helm
+  tags:
+    - helm
+
+- name: Add Helm repositories
+  kubernetes.core.helm_repository:
+    name: "{{ item.repo_name }}"
+    repo_url: "{{ item.repo_url }}"
+  with_items: "{{ kubernetes_helm_charts }}"
+  tags:
+    - helm
+
+- name: Install Helm charts
+  kubernetes.core.helm:
+    name: "{{ item.name }}"
+    chart_ref: "{{ item.repo_name }}/{{ item.chart }}"
+    release_namespace: "{{ item.namespace }}"
+    create_namespace: "{{ item.create_namespace }}"
+    chart_version: "{{ item.version }}"
+    values: "{{ lookup('file', 'helm_values/' + item.values_file) | from_yaml }}"
+  with_items: "{{ kubernetes_helm_charts }}"
+  delegate_to: "{{ groups['k8s_master'] | first }}"
+  run_once: true
+  tags:
+    - helm

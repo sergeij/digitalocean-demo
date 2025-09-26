@@ -1,0 +1,6 @@
+- name: Common
+  hosts: k8s
+  become: true
+  roles:
+    - common
+    - kubernetes

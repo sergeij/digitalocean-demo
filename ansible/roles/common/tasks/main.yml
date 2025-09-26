@@ -1,0 +1,18 @@
+---
+# tasks file for common
+- name: Set timezone to UTC
+  community.general.timezone:
+    name: "UTC"
+
+- name: Configure hostname
+  ansible.builtin.hostname:
+    name: "{{ inventory_hostname }}"
+
+- name: Install system packages
+  ansible.builtin.apt:
+    name:
+      - curl
+      - apt-transport-https
+      - ca-certificates
+      - software-properties-common
+    update_cache: true

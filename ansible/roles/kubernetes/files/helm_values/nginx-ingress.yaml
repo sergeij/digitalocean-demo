@@ -1,0 +1,19 @@
+controller:
+  replicaCount: 2
+  config:
+    use-proxy-protocol: "false"
+  service:
+    type: LoadBalancer
+    annotations:
+      service.beta.kubernetes.io/do-loadbalancer-enable-proxy-protocol: "false"
+      # service.beta.kubernetes.io/do-loadbalancer-hostname: "demo-lb.admins.cloud"
+  admissionWebhooks:
+    patch:
+      enabled: true
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        - labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: ingress-nginx
+          topologyKey: "kubernetes.io/hostname"

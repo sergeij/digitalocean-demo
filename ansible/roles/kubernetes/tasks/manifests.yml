@@ -1,0 +1,8 @@
+---
+- name: Apply Kubernetes manifests
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('file', 'manifests/' + item) }}"
+  with_items: "{{ kubernetes_manifests }}"
+  delegate_to: "{{ groups['k8s_master'] | first }}"
+  run_once: true

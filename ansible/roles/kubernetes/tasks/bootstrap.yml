@@ -1,0 +1,147 @@
+---
+- name: Ensure keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+
+- name: Download Kubernetes GPG key
+  ansible.builtin.get_url:
+    url: https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_major_version }}/deb/Release.key
+    dest: /etc/apt/keyrings/kubernetes-release-key.gpg
+    mode: '0644'
+
+- name: Convert GPG key to dearmored format
+  ansible.builtin.shell: |
+    gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg /etc/apt/keyrings/kubernetes-release-key.gpg
+  args:
+    creates: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+
+- name: Add Kubernetes APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v{{ kubernetes_major_version }}/deb/ /"
+    filename: kubernetes
+    state: present
+
+- name: Install kubelet, kubeadm, kubectl and python3-pip
+  ansible.builtin.apt:
+    name:
+      - kubelet={{ kubernetes_minor_version }}
+      - kubeadm={{ kubernetes_minor_version }}
+      - kubectl={{ kubernetes_minor_version }}
+      - python3-pip
+    state: present
+    update_cache: true
+
+- name: Install Kubernetes pip dependencies
+  ansible.builtin.pip:
+    name:
+      - openshift
+      - kubernetes
+    executable: pip3
+    state: present
+
+- name: Initialize Kubernetes master
+  ansible.builtin.command: >
+    kubeadm init --pod-network-cidr={{ kubernetes_pod_network_cidr }} \
+    --control-plane-endpoint={{ kubernetes_control_plane_endpoint }}:6443 \
+    --upload-certs --apiserver-advertise-address={{ ansible_facts[kubernetes_default_network_interface]['ipv4']['address'] }}
+  args:
+    creates: /etc/kubernetes/admin.conf
+  delegate_to: "{{ groups['k8s_master'] | first }}"
+  run_once: true
+
+- name: Deploy Cilium CNI
+  ansible.builtin.include_tasks: cilium.yml
+  when: "'k8s_master' in group_names"
+
+- name: Get kubeadm join command from master
+  ansible.builtin.command: kubeadm token create --print-join-command
+  register: join_command
+  delegate_to: "{{ groups['k8s_master'] | first }}"
+  run_once: true
+  changed_when: false
+
+- name: Set fact for join command
+  ansible.builtin.set_fact:
+    kubeadm_join_cmd: "{{ join_command.stdout }}"
+
+- name: Display kubeadm_join_cmd
+  ansible.builtin.debug:
+    msg: "kubeadm join command: {{ kubeadm_join_cmd }}"
+
+- name: Upload control plane certificate key
+  ansible.builtin.command: "kubeadm init phase upload-certs --upload-certs"
+  register: cert_key_raw
+  delegate_to: "{{ groups['k8s_master'] | first }}"
+  run_once: true
+  changed_when: false
+
+- name: Set kubeadm certificate key
+  ansible.builtin.set_fact:
+    cert_key: "{{ cert_key_raw.stdout_lines[-1] | trim }}"
+  run_once: true
+
+- name: Display kubeadm_certificate_key
+  ansible.builtin.debug:
+    msg: "kubeadm certificate key: {{ cert_key }}"
+
+- name: Check if kubelet config file exists
+  ansible.builtin.stat:
+    path: "/var/lib/kubelet/config.yaml"
+  register: kubelet_config
+
+- name: Join other control plane nodes
+  ansible.builtin.command: >
+    {{ kubeadm_join_cmd }} --control-plane --certificate-key {{ cert_key }} \
+    --apiserver-advertise-address={{ ansible_facts[kubernetes_default_network_interface]['ipv4']['address'] }} \
+  when:
+    - inventory_hostname != groups['k8s_master']|first
+    - "'k8s_master' in group_names"
+    - not kubelet_config.stat.exists
+  changed_when: false
+  environment:
+    KUBELET_EXTRA_ARGS: "--node-ip={{ ansible_facts[kubernetes_default_network_interface]['ipv4']['address'] }}"
+
+- name: Create /root/.kube directory
+  ansible.builtin.file:
+    path: /root/.kube
+    state: directory
+    owner: root
+    group: root
+    mode: '0640'
+  when: "'k8s_master' in group_names"
+
+- name: Create kubectl configuration for root user /root/.kube/config
+  ansible.builtin.copy:
+    src: /etc/kubernetes/admin.conf
+    dest: /root/.kube/config
+    mode: '0640'
+    remote_src: true
+  when: "'k8s_master' in group_names"
+
+- name: Setup kubectl bash autocomplete
+  ansible.builtin.shell: "kubectl completion bash > /etc/bash_completion.d/kubectl"
+  when: "'k8s_master' in group_names"
+  changed_when: false
+
+- name: Join worker nodes to cluster
+  ansible.builtin.command: "{{ kubeadm_join_cmd }}"
+  args:
+    creates: /etc/kubernetes/kubelet.conf
+  when:
+    - "'k8s_worker' in group_names"
+    - not kubelet_config.stat.exists
+  environment:
+    KUBELET_EXTRA_ARGS: "--node-ip={{ ansible_facts[kubernetes_default_network_interface]['ipv4']['address'] }}"
+
+- name: Set kubelet node IP
+  ansible.builtin.copy:
+    dest: /etc/default/kubelet
+    content: |
+      KUBELET_EXTRA_ARGS=--node-ip={{ ansible_facts[kubernetes_default_network_interface]['ipv4']['address'] }}
+    mode: '0644'
+  notify: Restart_kubelet
+
+- name: Restart kubelet if changed
+  ansible.builtin.meta: flush_handlers

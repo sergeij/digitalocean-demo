@@ -1,0 +1,64 @@
+---
+- name: Check if Cilium pods are running
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: kube-system
+    label_selectors:
+      - k8s-app=cilium
+    kubeconfig: "/etc/kubernetes/admin.conf"
+  register: cilium
+  delegate_to: "{{ groups['k8s_master'] | first }}"
+  run_once: true
+
+- name: Install and configure Cilium
+  when: cilium.resources | length == 0
+  delegate_to: "{{ groups['k8s_master'] | first }}"
+  run_once: true
+  block:
+    - name: Download Cilium CLI tarball
+      ansible.builtin.get_url:
+        url: "https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz"
+        dest: /tmp/cilium-linux-amd64.tar.gz
+        mode: '0644'
+
+    - name: Download Cilium CLI checksum
+      ansible.builtin.get_url:
+        url: "https://github.com/cilium/cilium-cli/releases/latest/download/cilium-linux-amd64.tar.gz.sha256sum"
+        dest: /tmp/cilium-linux-amd64.tar.gz.sha256sum
+        mode: '0644'
+
+    - name: Verify checksum of Cilium CLI tarball
+      ansible.builtin.command:
+        cmd: "sha256sum -c /tmp/cilium-linux-amd64.tar.gz.sha256sum"
+        chdir: /tmp
+      register: checksum_result
+      failed_when: checksum_result.rc != 0
+      changed_when: false
+
+    - name: Extract Cilium CLI
+      ansible.builtin.unarchive:
+        src: /tmp/cilium-linux-amd64.tar.gz
+        dest: /tmp/
+        remote_src: true
+        mode: '0755'
+
+    - name: Move Cilium binary to /usr/local/bin
+      ansible.builtin.copy:
+        src: /tmp/cilium
+        dest: /usr/local/bin/cilium
+        mode: '0755'
+        remote_src: true
+
+    - name: Install Cilium on the cluster
+      ansible.builtin.command:
+        cmd: >
+          cilium install
+          --version {{ kubernetes_cilium_version }}
+          --helm-set devices={{ kubernetes_default_network_interface }}
+          --helm-set ipam.mode=cluster-pool
+          --helm-set cluster.poolIPv4CIDR={{ kubernetes_pod_network_cidr }}
+          --helm-set ipv4NativeRoutingCIDR={{ kubernetes_pod_network_cidr }}
+          --set hubble.relay.enabled=true
+          --set hubble.ui.enabled=true
+          --kubeconfig /etc/kubernetes/admin.conf
+      changed_when: false
