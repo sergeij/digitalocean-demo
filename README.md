@@ -133,4 +133,5 @@ nginx-ingress-ingress-nginx-controller         LoadBalancer   10.111.240.35    1
 
 ## Hubble
 
-<img width="1687" alt="Screenshot 2025-06-29 at 18 20 03" src="https://github.com/user-attachments/assets/ca544fa0-fb72-488f-99a0-3730e148db21" />
+<img width="1687" height="891" alt="hubble" src="https://github.com/user-attachments/assets/20851488-6b5b-417f-ae19-8ccdd183f149" />
+
