@@ -17,12 +17,17 @@ Currently, you can:
 ```sh
 .
 ├── README.md
+├── databases.auto.tfvars
 ├── droplets.auto.tfvars
 ├── firewalls.auto.tfvars
 ├── loadbalancers.auto.tfvars
 ├── main.tf
 ├── modules
 │   └── do
+│       ├── database_cluster
+│       │   ├── main.tf
+│       │   ├── outputs.tf
+│       │   └── variables.tf
 │       ├── droplet
 │       │   ├── main.tf
 │       │   └── variables.tf
@@ -36,8 +41,7 @@ Currently, you can:
 │           ├── main.tf
 │           ├── outputs.tf
 │           └── variables.tf
-├── terraform.tfstate
-├── terraform.tfstate.backup
+├── outputs.tf
 ├── variables.tf
 └── vpc.auto.tfvars
 ```
