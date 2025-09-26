@@ -128,7 +128,7 @@ nginx-ingress-ingress-nginx-controller         LoadBalancer   10.111.240.35    1
 
 ## Notes
 
-- Terraform state is stored locally. For production use use S3.
+- Terraform state is stored locally.
 - You can manage multiple clusters by creating separate group variables under the inventory/ directory.
 
 ## Hubble
