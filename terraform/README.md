@@ -6,11 +6,12 @@ Currently, you can:
 - Configure VPC
 - Create firewalls
 - Deploy droplets
-- Configure Load balancer
+- Configure Load Balancer
+- Configure database cluster
 
 ## Requirements
 
-- Terraform v1.12.2
+- Terraform v1.13.3
 
 ## Directory Structure
 
