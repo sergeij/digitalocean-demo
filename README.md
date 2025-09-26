@@ -132,7 +132,7 @@ nginx-ingress-ingress-nginx-controller         LoadBalancer   10.111.240.35    1
 - You can manage multiple clusters by creating separate group variables under the inventory/ directory.
 - After all cluster initialization is complete, restart CoreDNS:
   ```sh
-  kubectl -n kube-system rollout restart coredns
+  kubectl -n kube-system rollout restart deployment coredns
   ```
 
 ## Hubble
