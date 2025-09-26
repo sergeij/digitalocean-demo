@@ -130,9 +130,10 @@ nginx-ingress-ingress-nginx-controller         LoadBalancer   10.111.240.35    1
 
 - Terraform state is stored locally.
 - You can manage multiple clusters by creating separate group variables under the inventory/ directory.
-- After all cluster initialization is complete, restart CoreDNS:
+- After all cluster initialization is complete, restart CoreDNS and cert-manager:
   ```sh
   kubectl -n kube-system rollout restart deployment coredns
+  kubectl -n cert-manager rollout restart deployment cert-manager
   ```
 
 ## Hubble
